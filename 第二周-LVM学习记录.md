@@ -290,17 +290,17 @@ linstor sp create lvm node1 pool_ssd vg_ssd
 linstor sp create lvm [节点名称] [存储池名称] [卷组名称] #通过lvm创建linstor存储池
 ```
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230024523.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232024523.png)
 
 创建成功
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230025661.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232025661.png)
 
 ### 多节点共享存储池
 
 查看两个satellite VG的UUID
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230032073.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232032073.png)
 
 创建存储池
 
@@ -313,7 +313,7 @@ linstor storage-pool create lvm --external-locking \
 bravo pool_ssd shared_vg_ssd
 ```
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230038907.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232038907.png)
 
 ### 直接通过物理磁盘创建存储池
 
@@ -334,7 +334,7 @@ linstor physical-storage list
 
 有两个节点可用，每个节点都有两块可用物理磁盘
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230055115.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232055115.png)
 
 创建存储池
 
@@ -347,14 +347,14 @@ LVMTHIN node1 /dev/sdb --storage-pool newpool
 
 创建成功
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230111650.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232111650.png)
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230114361.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232114361.png)
 
 可以看到实际上就是在对应节点格式化了磁盘，创建卷组，创建逻辑卷加入存储池
 
 扩展存储池
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230122458.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232122458.png)
 
-![](https://github.com/benchu231/imgs/blob/img/img/202311230123371.png)
+![](https://github.com/benchu231/imgs/blob/img/img/202311232123371.png)
