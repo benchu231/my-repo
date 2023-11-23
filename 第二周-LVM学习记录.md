@@ -88,6 +88,7 @@ lvcreate -n lv1 -L 2G vg1
 将创建好的逻辑卷挂载使用
 
 ```bash
+mount [逻辑卷路径] [挂载路径] #挂载路径作为逻辑卷存储路径 相当于Windows下的新加卷
 mount /dev/vg1/lv1 /mnt
 ```
 
@@ -184,7 +185,7 @@ pv删除成功
 
 ![](https://github.com/benchu231/imgs/blob/img/img/202311231044096.png)
 
-现在要对my_lv扩展2G，可以看到my_vg只有1022MB剩余空间，需要先对vg进行扩展
+现在要对my_lv扩展2G，可以看到my_vg只有1020MB剩余空间，需要先对vg进行扩展
 
 ```bash
 vgextend [卷组名] [物理卷名]
@@ -208,9 +209,15 @@ lvextend -L +2G /dev/my_vg/my_lv
 
 ![](https://github.com/benchu231/imgs/blob/img/img/202311231056623.png)
 
-逻辑卷扩容成功，需要更新文件系统
+逻辑卷扩容成功，但文件系统显示仍为1G
+
+```bash
+df -h
+```
 
 ![](https://github.com/benchu231/imgs/blob/img/img/202311231057126.png)
+
+需要更新文件系统
 
 ```
 resize2fs /dev/my_vg/my_lv
