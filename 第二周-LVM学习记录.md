@@ -229,11 +229,52 @@ resize2fs /dev/my_vg/my_lv
 
 **LVM缩容**
 
+LVM缩容不像扩容一样，能够在线执行，随容需要将逻辑卷卸载下线后才能进行，以保证数据的安全性
+
+取消目标LV的挂载
+
+```
+umount [逻辑卷路径]
+umount /dev/my_vg/my_lv
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311232000889.png)
+
+检查文件系统
+
+```bash
+e2fsck -f /dev/my_vg/my_lv # -f为遇见错误直接修复
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311232003590.png)
+
+缩小文件系统
+
+```
+resize2fs /dev/my_vg/my_lv 1G
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311232008216.png)
+
+缩小LV
+
+```
+lvreduce -L -1G /dev/my_vg/my_lv
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311232009020.png)
+
+挂载
+
+```
+mount /dev/my_vg/my_lv /mnt
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311232012587.png)
+
 
 
 ## Linstor创建存储池
-
-### 1.通过lvm创建
 
 在所有的satellite上新建一个VG，最好所有节点的VG都用同一个命名
 
@@ -254,3 +295,66 @@ linstor sp create lvm [节点名称] [存储池名称] [卷组名称] #通过lvm
 创建成功
 
 ![](https://github.com/benchu231/imgs/blob/img/img/202311230025661.png)
+
+### 多节点共享存储池
+
+查看两个satellite VG的UUID
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230032073.png)
+
+创建存储池
+
+```bash
+linstor storage-pool create lvm --external-locking \
+--shared-space O1btSy-UO1n-lOAo-4umW-ETZM-sxQD-qT4V87 \
+alpha pool_ssd shared_vg_ssd
+linstor storage-pool create lvm --external-locking \
+--shared-space O1btSy-UO1n-lOAo-4umW-ETZM-sxQD-qT4V87 \
+bravo pool_ssd shared_vg_ssd
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230038907.png)
+
+### 直接通过物理磁盘创建存储池
+
+这个方法需要满足以下四点要求
+
+- 磁盘设备的大小必须大于1GB
+- 这个磁盘设备必须是根设备，无子文件，如`/dev/vda` `/dev/sda`
+- 这个磁盘设备上没有任何的文件系统或者blkid标记 (可以使用wipefs -a清除磁盘所有签名)
+- 这个磁盘设备不是一个DRBD设备
+
+为虚拟机新增两块磁盘，不做任何处理（不格式化为物理卷）
+
+使用linstor查询可用的物理存储
+
+```bash
+linstor physical-storage list
+```
+
+有两个节点可用，每个节点都有两块可用物理磁盘
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230055115.png)
+
+创建存储池
+
+```
+linstor physical-storage create-device-pool --pool-name [逻辑卷名] \
+LVMTHIN [节点名] [设备名] --storage-pool [Linstor存储池名]
+linstor physical-storage create-device-pool --pool-name lv_my_pool \
+LVMTHIN node1 /dev/sdb --storage-pool newpool
+```
+
+创建成功
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230111650.png)
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230114361.png)
+
+可以看到实际上就是在对应节点格式化了磁盘，创建卷组，创建逻辑卷加入存储池
+
+扩展存储池
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230122458.png)
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311230123371.png)
