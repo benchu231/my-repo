@@ -172,9 +172,61 @@ pv删除成功
 
 ![](https://github.com/benchu231/imgs/blob/img/img/202311230008114.png)
 
+### lvm的拉伸与缩容
+
+逻辑卷的拉伸操作可以在线执行。不需要卸载逻辑卷
+
+**lvm的拉伸**
+
+先查看要扩展的LV所属的VG是否有足够的free space来扩展LV
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231045091.png)
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231044096.png)
+
+现在要对my_lv扩展2G，可以看到my_vg只有1022MB剩余空间，需要先对vg进行扩展
+
+```bash
+vgextend [卷组名] [物理卷名]
+vgextend my_vg /dev/sdc
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231048020.png)
+
+my_vg剩余空间2.99G
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231049889.png)
+
+扩展LV
+
+```bash
+lvextend -L +[扩展大小] [逻辑卷路径]
+lvextend -L +2G /dev/my_vg/my_lv
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231056759.png)
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231056623.png)
+
+逻辑卷扩容成功，需要更新文件系统
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231057126.png)
+
+```
+resize2fs /dev/my_vg/my_lv
+```
+
+![](https://github.com/benchu231/imgs/blob/img/img/202311231058521.png)
+
+由于是动态拉伸逻辑卷大小，并未下线逻辑卷，在其上层的文件系统与正在使用该卷的程序并不需要暂时下线，且扩容后，卷中原先存储的文件数据并不会丢失
+
+**LVM缩容**
+
 
 
 ## Linstor创建存储池
+
+### 1.通过lvm创建
 
 在所有的satellite上新建一个VG，最好所有节点的VG都用同一个命名
 
