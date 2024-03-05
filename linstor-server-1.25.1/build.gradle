@@ -307,6 +307,8 @@ project(':controller') {
         implementation project(':server'), project(':jclcrypto')
         testImplementation project(':server'), project(':jclcrypto')
 
+        implementation 'com.huaweicloud:esdk-obs-java-bundle:3.23.9'
+
         if (gradle.startParameter.isOffline()) {
             compileOnly fileTree(dir: "libs/compileOnly")
             implementation fileTree(dir: "libs/implementation")
