@@ -94,6 +94,8 @@ project(':server') {
 
             implementation 'com.huaweicloud:esdk-obs-java-bundle:3.23.9'
 
+            implementation 'com.huaweicloud:esdk-obs-java-bundle:3.23.9'
+
             api group: 'com.cronutils', name: 'cron-utils', version: cronVersion
 
             // toml parsing library
