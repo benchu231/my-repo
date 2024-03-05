@@ -195,8 +195,7 @@ public abstract class AbsBackupShippingService implements SystemService
         int vlmNrRef,
         String cmdRef,
         AbsStorageVlmData<Snapshot> basedOnSnapVlmData,
-        AbsStorageVlmData<Snapshot> snapVlmData,
-        ApiCallRcImpl apiCallRc
+        AbsStorageVlmData<Snapshot> snapVlmData
     ) throws StorageException, InvalidNameException, InvalidKeyException, AccessDeniedException
     {
         if (RscLayerSuffixes.shouldSuffixBeShipped(rscNameSuffixRef))
