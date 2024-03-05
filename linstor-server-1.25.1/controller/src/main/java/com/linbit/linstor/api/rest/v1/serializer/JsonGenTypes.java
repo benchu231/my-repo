@@ -4,11 +4,11 @@ This file was generated with rest-gen.py, do not modify directly, the chances ar
 
 package com.linbit.linstor.api.rest.v1.serializer;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Collections;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 public class JsonGenTypes
 {
@@ -1353,6 +1353,7 @@ public class JsonGenTypes
         public Boolean shipping;
         public Boolean restorable;
         public BackupS3 s3;
+        public BackupObs obs;
         public String based_on_id;
     }
 
@@ -1363,6 +1364,7 @@ public class JsonGenTypes
         public String finished_time;
         public Long finished_timestamp;
         public BackupVolumesS3 s3;
+        public BackupVolumesObs obs;
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -1373,6 +1375,17 @@ public class JsonGenTypes
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class BackupS3
+    {
+        public String meta_name;
+    }
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public static class BackupVolumesObs
+    {
+        public String key;
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public static class BackupObs
     {
         public String meta_name;
     }
@@ -1906,12 +1919,24 @@ public class JsonGenTypes
     public static class RemoteList
     {
         public List<S3Remote> s3_remotes = Collections.emptyList();
+        public List<ObsRemote> obs_remotes = Collections.emptyList();
         public List<LinstorRemote> linstor_remotes = Collections.emptyList();
         public List<EbsRemote> ebs_remotes = Collections.emptyList();
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class S3Remote
+    {
+        public String remote_name;
+        public String endpoint;
+        public String bucket;
+        public String region;
+        public String access_key;
+        public String secret_key;
+        public boolean use_path_style = false;
+    }
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public static class ObsRemote
     {
         public String remote_name;
         public String endpoint;

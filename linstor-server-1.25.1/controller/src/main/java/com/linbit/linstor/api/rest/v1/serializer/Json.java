@@ -1,5 +1,6 @@
 package com.linbit.linstor.api.rest.v1.serializer;
 
+import com.google.common.net.UrlEscapers;
 import com.linbit.ImplementationError;
 import com.linbit.InvalidNameException;
 import com.linbit.ValueOutOfRangeException;
@@ -7,77 +8,17 @@ import com.linbit.linstor.LinstorParsingUtils;
 import com.linbit.linstor.api.ApiCallRc;
 import com.linbit.linstor.api.ApiCallRc.RcEntry;
 import com.linbit.linstor.api.ApiCallRcImpl;
-import com.linbit.linstor.api.interfaces.AutoSelectFilterApi;
-import com.linbit.linstor.api.interfaces.RscDfnLayerDataApi;
-import com.linbit.linstor.api.interfaces.RscLayerDataApi;
-import com.linbit.linstor.api.interfaces.VlmDfnLayerDataApi;
-import com.linbit.linstor.api.interfaces.VlmLayerDataApi;
-import com.linbit.linstor.api.pojo.AutoSelectFilterPojo;
-import com.linbit.linstor.api.pojo.BCacheRscPojo;
-import com.linbit.linstor.api.pojo.CacheRscPojo;
-import com.linbit.linstor.api.pojo.DrbdRscPojo;
-import com.linbit.linstor.api.pojo.EbsRemotePojo;
-import com.linbit.linstor.api.pojo.EffectivePropertiesPojo;
+import com.linbit.linstor.api.interfaces.*;
+import com.linbit.linstor.api.pojo.*;
 import com.linbit.linstor.api.pojo.EffectivePropertiesPojo.EffectivePropertyPojo;
 import com.linbit.linstor.api.pojo.EffectivePropertiesPojo.PropPojo;
-import com.linbit.linstor.api.pojo.ExosConnectionMapPojo;
-import com.linbit.linstor.api.pojo.ExosDefaultsPojo;
-import com.linbit.linstor.api.pojo.ExosEnclosureEventPojo;
-import com.linbit.linstor.api.pojo.ExosEnclosureHealthPojo;
-import com.linbit.linstor.api.pojo.ExternalFilePojo;
-import com.linbit.linstor.api.pojo.LinstorRemotePojo;
-import com.linbit.linstor.api.pojo.LuksRscPojo;
-import com.linbit.linstor.api.pojo.MaxVlmSizeCandidatePojo;
-import com.linbit.linstor.api.pojo.NetInterfacePojo;
-import com.linbit.linstor.api.pojo.NvmeRscPojo;
-import com.linbit.linstor.api.pojo.OpenflexRscPojo;
-import com.linbit.linstor.api.pojo.QueryAllSizeInfoRequestPojo;
-import com.linbit.linstor.api.pojo.QueryAllSizeInfoResponsePojo;
 import com.linbit.linstor.api.pojo.QueryAllSizeInfoResponsePojo.QueryAllSizeInfoResponseEntryPojo;
-import com.linbit.linstor.api.pojo.QuerySizeInfoRequestPojo;
-import com.linbit.linstor.api.pojo.QuerySizeInfoResponsePojo;
-import com.linbit.linstor.api.pojo.RscPojo;
-import com.linbit.linstor.api.pojo.S3RemotePojo;
-import com.linbit.linstor.api.pojo.SchedulePojo;
-import com.linbit.linstor.api.pojo.StorageRscPojo;
-import com.linbit.linstor.api.pojo.VlmDfnPojo;
-import com.linbit.linstor.api.pojo.WritecacheRscPojo;
-import com.linbit.linstor.api.pojo.backups.BackupInfoPojo;
-import com.linbit.linstor.api.pojo.backups.BackupInfoStorPoolPojo;
-import com.linbit.linstor.api.pojo.backups.BackupInfoVlmPojo;
-import com.linbit.linstor.api.pojo.backups.BackupNodeQueuesPojo;
-import com.linbit.linstor.api.pojo.backups.BackupSnapQueuesPojo;
-import com.linbit.linstor.api.pojo.backups.ScheduleDetailsPojo;
-import com.linbit.linstor.api.pojo.backups.ScheduledRscsPojo;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.AutoSelectFilter;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.ExosDefaults;
+import com.linbit.linstor.api.pojo.backups.*;
 import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.NodeConnection;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.QueryAllSizeInfoResponse;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.QuerySizeInfoResponse;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.QuerySizeInfoResponseSpaceInfo;
-import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.QuerySizeInfoSpawnResult;
+import com.linbit.linstor.api.rest.v1.serializer.JsonGenTypes.*;
 import com.linbit.linstor.core.LinStor;
-import com.linbit.linstor.core.apis.BackupApi;
-import com.linbit.linstor.core.apis.BackupApi.BackupS3Api;
-import com.linbit.linstor.core.apis.BackupApi.BackupVlmApi;
-import com.linbit.linstor.core.apis.BackupApi.BackupVlmS3Api;
-import com.linbit.linstor.core.apis.NetInterfaceApi;
-import com.linbit.linstor.core.apis.NodeApi;
-import com.linbit.linstor.core.apis.NodeConnectionApi;
-import com.linbit.linstor.core.apis.ResourceApi;
-import com.linbit.linstor.core.apis.ResourceConnectionApi;
-import com.linbit.linstor.core.apis.ResourceDefinitionApi;
-import com.linbit.linstor.core.apis.ResourceGroupApi;
-import com.linbit.linstor.core.apis.SnapshotApi;
-import com.linbit.linstor.core.apis.SnapshotDefinitionListItemApi;
-import com.linbit.linstor.core.apis.SnapshotShippingListItemApi;
-import com.linbit.linstor.core.apis.SnapshotVolumeApi;
-import com.linbit.linstor.core.apis.SnapshotVolumeDefinitionApi;
-import com.linbit.linstor.core.apis.StorPoolApi;
-import com.linbit.linstor.core.apis.StorPoolDefinitionApi;
-import com.linbit.linstor.core.apis.VolumeApi;
-import com.linbit.linstor.core.apis.VolumeDefinitionApi;
-import com.linbit.linstor.core.apis.VolumeGroupApi;
+import com.linbit.linstor.core.apis.*;
+import com.linbit.linstor.core.apis.BackupApi.*;
 import com.linbit.linstor.core.identifier.NodeName;
 import com.linbit.linstor.core.identifier.ResourceName;
 import com.linbit.linstor.core.identifier.SharedStorPoolName;
@@ -87,10 +28,10 @@ import com.linbit.linstor.core.objects.Resource;
 import com.linbit.linstor.core.objects.ResourceConnection;
 import com.linbit.linstor.core.objects.ResourceDefinition;
 import com.linbit.linstor.core.objects.Snapshot;
-import com.linbit.linstor.core.objects.SnapshotDefinition;
 import com.linbit.linstor.core.objects.Volume;
 import com.linbit.linstor.core.objects.VolumeDefinition;
 import com.linbit.linstor.core.objects.VolumeGroup;
+import com.linbit.linstor.core.objects.*;
 import com.linbit.linstor.satellitestate.SatelliteResourceState;
 import com.linbit.linstor.satellitestate.SatelliteState;
 import com.linbit.linstor.satellitestate.SatelliteVolumeState;
@@ -105,17 +46,9 @@ import com.linbit.utils.Pair;
 
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
-
-import com.google.common.net.UrlEscapers;
 
 public class Json
 {
@@ -189,11 +122,11 @@ public class Json
         );
     }
 
-    public static JsonGenTypes.NodeConnection apiToNodeConnection(
+    public static NodeConnection apiToNodeConnection(
         NodeConnectionApi nodeConnApi
     )
     {
-        NodeConnection nodeCon = new JsonGenTypes.NodeConnection();
+        NodeConnection nodeCon = new NodeConnection();
         String localNodeName = nodeConnApi.getLocalNodeName();
         String otherNodeName = nodeConnApi.getOtherNodeApi().getName();
         if (localNodeName.compareTo(otherNodeName) < 0)
@@ -634,7 +567,7 @@ public class Json
                 if (rscApi.getLayerData().getLayerKind() == DeviceLayerKind.DRBD)
                 {
                     rsc.layer_object.drbd.connections = new HashMap<>();
-                    for (Map.Entry<NodeName, String> entry : satResState.getConnectionStates()
+                    for (Entry<NodeName, String> entry : satResState.getConnectionStates()
                         .getOrDefault(linNodeName, new HashMap<>()).entrySet())
                     {
                         JsonGenTypes.DrbdConnection con = new JsonGenTypes.DrbdConnection();
@@ -908,13 +841,13 @@ public class Json
 
     public static class AutoSelectFilterData implements AutoSelectFilterApi
     {
-        private final JsonGenTypes.AutoSelectFilter autoSelectFilter;
+        private final AutoSelectFilter autoSelectFilter;
 
-        public AutoSelectFilterData(JsonGenTypes.AutoSelectFilter autoSelectFilterRef)
+        public AutoSelectFilterData(AutoSelectFilter autoSelectFilterRef)
         {
             if (autoSelectFilterRef == null)
             {
-                autoSelectFilter = new JsonGenTypes.AutoSelectFilter();
+                autoSelectFilter = new AutoSelectFilter();
             }
             else
             {
@@ -1193,7 +1126,7 @@ public class Json
 
     public static ExosDefaults apiToExosDefaults(ExosDefaultsPojo pojo)
     {
-        JsonGenTypes.ExosDefaults json = new JsonGenTypes.ExosDefaults();
+        ExosDefaults json = new ExosDefaults();
         json.password = pojo.getPassword();
         json.password_env = pojo.getPasswordEnv();
         json.username = pojo.getUsername();
@@ -1306,6 +1239,12 @@ public class Json
                     backupVlm.s3 = new JsonGenTypes.BackupVolumesS3();
                     backupVlm.s3.key = s3VlmApi.getS3Key();
                 }
+                BackupVlmObsApi obsVlmApi = backupVlmApi.getObs();
+                if (obsVlmApi != null)
+                {
+                    backupVlm.obs = new JsonGenTypes.BackupVolumesObs();
+                    backupVlm.obs.key = obsVlmApi.getObsKey();
+                }
                 jsonBackup.vlms.add(backupVlm);
             }
 
@@ -1314,6 +1253,12 @@ public class Json
             {
                 jsonBackup.s3 = new JsonGenTypes.BackupS3();
                 jsonBackup.s3.meta_name = s3Api.getMetaName();
+            }
+            BackupObsApi obsApi = backup.getObs();
+            if (obsApi != null)
+            {
+                jsonBackup.obs = new JsonGenTypes.BackupObs();
+                jsonBackup.obs.meta_name = obsApi.getMetaName();
             }
 
             String basedOn = backup.getBasedOnId();
@@ -1363,6 +1308,17 @@ public class Json
     public static JsonGenTypes.S3Remote apiToS3Remote(S3RemotePojo pojo)
     {
         JsonGenTypes.S3Remote json = new JsonGenTypes.S3Remote();
+        json.remote_name = pojo.getRemoteName();
+        json.endpoint = pojo.getEndpoint();
+        json.bucket = pojo.getBucket();
+        json.region = pojo.getRegion();
+
+        return json;
+    }
+
+    public static JsonGenTypes.ObsRemote apiToObsRemote(ObsRemotePojo pojo)
+    {
+        JsonGenTypes.ObsRemote json = new JsonGenTypes.ObsRemote();
         json.remote_name = pojo.getRemoteName();
         json.endpoint = pojo.getEndpoint();
         json.bucket = pojo.getBucket();
@@ -1497,10 +1453,10 @@ public class Json
         ApiCallRc apiCallRcRef
     )
     {
-        JsonGenTypes.QuerySizeInfoResponse resp = new JsonGenTypes.QuerySizeInfoResponse();
+        QuerySizeInfoResponse resp = new QuerySizeInfoResponse();
         if (pojo != null)
         {
-            resp.space_info = new JsonGenTypes.QuerySizeInfoResponseSpaceInfo();
+            resp.space_info = new QuerySizeInfoResponseSpaceInfo();
             QuerySizeInfoResponseSpaceInfo spaceInfo = resp.space_info;
             spaceInfo.max_vlm_size_in_kib = pojo.getMaxVlmSize();
             spaceInfo.available_size_in_kib = pojo.getAvailableSize();
@@ -1532,11 +1488,11 @@ public class Json
         );
     }
 
-    public static JsonGenTypes.QueryAllSizeInfoResponse pojoToQueryAllSizeInfoResp(
+    public static QueryAllSizeInfoResponse pojoToQueryAllSizeInfoResp(
         QueryAllSizeInfoResponsePojo resultPojoRef
     )
     {
-        JsonGenTypes.QueryAllSizeInfoResponse resp = new QueryAllSizeInfoResponse();
+        QueryAllSizeInfoResponse resp = new QueryAllSizeInfoResponse();
         if (resultPojoRef != null)
         {
             Map<String, QueryAllSizeInfoResponseEntryPojo> map = resultPojoRef.getResult();
