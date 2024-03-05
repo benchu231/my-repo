@@ -1,0 +1,690 @@
+import org.gradle.process.internal.ExecException
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'application'
+apply plugin: 'checkstyle'
+apply plugin: 'jacoco'
+
+checkstyleTest.enabled = false
+
+def protobufVersion = '23.3'
+def protoc = file("${projectDir}/tools/protoc-" + protobufVersion + '/bin/protoc')
+def logbackConfig = "logback.xml"
+def jvmOpts = ["-Xms32M"]
+def cronVersion = '9.1.6'
+def java11LibDir = project(':server').hasProperty("java11") ? project(':server').property("java11") : null
+
+// workaround to force gradle to download not just the dependencies for --offline use
+// but also the plugins
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        if (gradle.startParameter.isOffline()) {
+            classpath fileTree(dir: "$projectDir/libs/plugins")
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'checkstyle'
+    group 'com.linbit'
+
+    compileJava {
+        options.release = 11
+    }
+
+    dependencies {
+        if (gradle.startParameter.isOffline()) {
+            implementation fileTree(dir: "libs/compileClasspath")
+            runtimeOnly fileTree(dir: "libs/runtimeClasspath")
+            testImplementation fileTree(dir: "libs/compileClasspath")
+            testRuntimeOnly fileTree(dir: "libs/runtimeClasspath")
+        }
+    }
+
+    repositories {
+        mavenCentral()
+
+        flatDir {
+            dirs 'libs/compileClasspath', 'libs/runtimeClasspath'
+        }
+    }
+}
+
+project(':server') {
+    apply plugin: 'java-library'
+
+    dependencies {
+        if (!gradle.startParameter.isOffline()) {
+            api group: 'com.google.inject', name: 'guice', version: '5.1.0'
+            api group: 'com.google.inject.extensions', name: 'guice-assistedinject', version: '5.1.0'
+
+//            compileOnly group: 'com.google.protobuf', name: 'protobuf-javalite', version: protobufVersion
+            api group: 'com.google.protobuf', name: 'protobuf-java', version: '3.' + protobufVersion
+
+            api 'io.sentry:sentry:5.6.1'
+            api 'info.picocli:picocli:4.7.4'
+
+            // project-reactor
+            api platform('io.projectreactor:reactor-bom:2022.0.8')
+            // add dependencies without a version number
+            api 'io.projectreactor:reactor-core'
+
+            compileOnly group: 'org.slf4j', name: 'slf4j-api', version: '2.0.7'
+            api group: 'ch.qos.logback', name: 'logback-classic', version: '1.3.8'
+            api 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+            api 'com.fasterxml.jackson.jr:jackson-jr-objects:2.11.+'
+            api 'com.fasterxml.jackson.core:jackson-databind:2.11.+'
+
+            api group: 'org.apache.commons', name: 'commons-dbcp2', version: '2.7.0'
+            api group: 'org.apache.commons', name: 'commons-pool2', version: '2.7.0'
+            api group: 'com.h2database', name: 'h2', version: '1.4.197'
+
+            api platform('com.amazonaws:aws-java-sdk-bom:1.12.496')
+            api 'com.amazonaws:aws-java-sdk-s3'
+            api 'com.amazonaws:aws-java-sdk-ebs'
+            api 'com.amazonaws:aws-java-sdk-ec2'
+
+            api group: 'com.cronutils', name: 'cron-utils', version: cronVersion
+
+            // toml parsing library
+            api group: 'com.moandjiezana.toml', name: 'toml4j', version: '0.7.2'
+
+            // this needs to be moved to the controller, once we have refactored our interfaces requiring this to be here
+            api group: 'com.ibm.etcd', name: 'etcd-java', version: '0.0.22'
+
+            api group: 'io.fabric8', name: 'kubernetes-client', version: '6.7.2'
+            constraints {
+                api('com.squareup.okhttp3:okhttp:4.10.0') {
+                    because('previous versions had a bug when validationg certificates against IPv6 addresses')
+                }
+                api('com.squareup.okhttp3:logging-interceptor:4.10.0') {
+                    because('previous versions had a bug when validationg certificates against IPv6 addresses')
+                }
+            }
+
+            testCompileOnly group: 'junit', name: 'junit', version: '4.+'
+        }
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ["src/main/java", "generated-src"]
+            }
+            resources {
+                srcDirs = ["src/main/resources", "generated-resources"]
+            }
+        }
+        test {
+            java {
+                srcDirs = ["src/test/java"]
+            }
+        }
+    }
+
+    /////////////////////////// Version Info ///////////////////////////
+    tasks.register('versionInfo') {
+        String propsFile = "$projectDir/generated-resources/version-info.properties"
+        outputs.file(propsFile)
+
+        if (project.hasProperty('versionOverride')) {
+            logger.warn("Overriding version with $versionOverride")
+            version = versionOverride
+        }
+
+        if (!project.hasProperty('versionOverride')) {
+            File gitFolder = file("$projectDir/../.git")
+            if (gitFolder.exists()) {
+                try {
+                    def stdOut = new ByteArrayOutputStream()
+                    def stdErr = new ByteArrayOutputStream()
+                    project.exec {
+                        commandLine 'make', '-C', '..', 'versioninfo'
+                        standardOutput = stdOut
+                        errorOutput = stdErr
+                    }
+                } catch (ExecException exc) {
+                    throw new RuntimeException("Cannot generate version.", exc)
+                }
+            }
+
+            Properties props = new Properties()
+            try {
+                props.load(new FileInputStream(propsFile))
+            } catch (Exception exc) {
+                throw new RuntimeException("Cannot read version.", exc)
+            }
+            version = props.get("version")
+        }
+    }
+
+    /**
+     * Generates Java sources from common API definitions. This includes the protobuf compilation.
+     *
+     * For package builds this task is run in the 'make debrelease' stage, the generated sources are bundled in the package
+     * tarball, and it is then skipped when the package is finally built.
+     */
+    tasks.register('generateProto', Exec) {
+        doFirst {
+            if (!protoc.exists()) {
+                throw new GradleException("'protoc' binary not found; run the task 'getProtoc' to download the binary")
+            }
+        }
+
+        commandLine 'make', '-C', "${projectDir}/proto", "PROTOC=" + protoc, 'proto'
+
+        inputs.files(fileTree("${projectDir}/proto"))
+        outputs.dir(file("${projectDir}/generated-src"))
+    }
+
+    tasks.register('generateJava', Exec) {
+        commandLine 'make', '-C', '../linstor-common', 'java'
+
+        inputs.files(fileTree("../linstor-common"))
+        outputs.files(file("${projectDir}/generated-src/com/linbit/linstor/api/ApiConsts.java"),
+                "${projectDir}/generated-src/com/linbit/linstor/api/prop/GeneratedPropertyRules.java"
+        )
+        dependsOn generateProto
+    }
+
+    tasks.register('cleanProto', Exec) {
+        commandLine 'make', '-C', "${projectDir}/proto", 'clean-proto'
+    }
+
+    tasks.register('cleanCommon', Exec) {
+        commandLine 'make', '-C', "../linstor-common", 'cleanjava'
+    }
+
+    processResources.dependsOn versionInfo
+
+    compileJava {
+        dependsOn generateJava
+    }
+
+    clean {
+        delete "${projectDir}/generated-resources"
+        dependsOn cleanCommon, cleanProto
+    }
+}
+
+project(':satellite') {
+    apply plugin: 'application'
+
+    dependencies {
+        implementation project(':server'), project(':jclcrypto')
+
+        testImplementation group: 'junit', name: 'junit', version: '4.+'
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ["src/main/java"]
+            }
+            resources {
+                srcDirs = ["src/main/resources"]
+            }
+        }
+        test {
+            java {
+                srcDirs = ["src/test/java"]
+            }
+        }
+    }
+
+    installDist {
+        duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+    }
+
+    startScripts.enabled = false
+    tasks.register('SatelliteStartup', CreateStartScripts) {
+        mainClass = 'com.linbit.linstor.core.Satellite'
+        applicationName = "Satellite"
+        outputDir = new File(project.buildDir, 'satellite')
+        classpath = files('conf') + files('*')
+        defaultJvmOpts = jvmOpts
+        doLast {
+            delete windowsScript
+            if (project(':server').hasProperty("java11")) {
+                unixScript.text = unixScript.text.replaceFirst("JAVACMD=\"?java\"?", "JAVACMD=/usr/${java11LibDir}/jvm/jre-11/bin/java")
+            }
+        }
+    }
+
+    distributions {
+        main {
+            contents {
+                from(SatelliteStartup) {
+                    into("bin")
+                }
+            }
+        }
+    }
+}
+
+project(':jclcrypto') {
+    apply plugin: 'java-library'
+
+    dependencies {
+        implementation project(':server')
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ["src/main/java", "generated-src"]
+            }
+        }
+        test {
+            java {
+                srcDirs = ["src/test/java"]
+            }
+        }
+    }
+}
+
+version = project(':server').version
+project(':controller').version = version
+project(':satellite').version = version
+project(':jclcrypto').version = version
+
+def jerseyVersion = '2.40'
+
+project(':controller') {
+    apply plugin: 'application'
+
+    dependencies {
+        implementation project(':server'), project(':jclcrypto')
+        testImplementation project(':server'), project(':jclcrypto')
+
+        if (gradle.startParameter.isOffline()) {
+            compileOnly fileTree(dir: "libs/compileOnly")
+            implementation fileTree(dir: "libs/implementation")
+            runtimeOnly fileTree(dir: "libs/runtimeOnly")
+            testCompileOnly fileTree(dir: "libs/testCompileOnly")
+            testImplementation fileTree(dir: "libs/testImplementation")
+        } else {
+            // rest libs (grizzly http(s), jersey(rest))
+            implementation 'org.glassfish.grizzly:grizzly-http-server:4.0.0'
+            implementation 'org.glassfish.hk2:guice-bridge:2.6.1'
+            implementation group: 'org.glassfish.jersey.inject', name: 'jersey-hk2', version: jerseyVersion
+            implementation group: 'org.glassfish.jersey.containers', name: 'jersey-container-grizzly2-http', version: jerseyVersion
+            implementation group: 'org.glassfish.jersey.containers', name: 'jersey-container-grizzly2-servlet', version: jerseyVersion
+            implementation group: 'org.glassfish.jersey.media', name: 'jersey-media-sse', version: jerseyVersion
+
+            // prometheus client library
+            implementation group: 'io.prometheus', name: 'simpleclient_common', version: '0.16.0'
+            implementation group: 'io.prometheus', name: 'simpleclient_hotspot', version: '0.16.0'
+
+            implementation group: 'javax.activation', name: 'activation', version: '1.1.1'
+            implementation group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
+
+            implementation group: 'org.flywaydb', name: 'flyway-core', version: '7.15.0'
+
+            runtimeOnly 'org.mariadb.jdbc:mariadb-java-client:3.1.4'
+            runtimeOnly group: 'org.postgresql', name: 'postgresql', version: '42.5.4'
+        }
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ["src/main/java", "generated-src"]
+            }
+            resources {
+                srcDirs = ["src/main/resources", "generated-resources"]
+            }
+        }
+        test {
+            java {
+                srcDirs = ["src/test/java"]
+            }
+        }
+    }
+
+    installDist {
+        duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+    }
+
+    startScripts.enabled = false
+    tasks.register('ControllerStartup', CreateStartScripts) {
+        mainClass = 'com.linbit.linstor.core.Controller'
+        applicationName = "Controller"
+        outputDir = new File(project.buildDir, 'controller')
+        classpath = files('conf') + files('*')
+        defaultJvmOpts = jvmOpts
+        doLast {
+            delete windowsScript
+            if (project(':server').hasProperty("java11")) {
+                unixScript.text = unixScript.text.replaceFirst("JAVACMD=\"?java\"?", "JAVACMD=/usr/${java11LibDir}/jvm/jre-11/bin/java")
+            }
+        }
+    }
+
+    tasks.register('LinstorConfigStartup', CreateStartScripts) {
+        mainClass = 'com.linbit.linstor.core.LinstorConfigTool'
+        applicationName = "linstor-config"
+        outputDir = new File(project.buildDir, 'linstorconfig')
+        classpath = files('*')
+        defaultJvmOpts = jvmOpts
+        doLast {
+            delete windowsScript
+            if (project(':server').hasProperty("java11")) {
+                unixScript.text = unixScript.text.replaceFirst("JAVACMD=\"?java\"?", "JAVACMD=/usr/${java11LibDir}/jvm/jre-11/bin/java")
+            }
+        }
+    }
+
+    tasks.register('LinstorDbToolStartup', CreateStartScripts) {
+        mainClass = 'com.linbit.linstor.core.LinstorDatabaseTool'
+        applicationName = "linstor-database"
+        outputDir = new File(project.buildDir, 'linstordb')
+        classpath = files('*')
+        defaultJvmOpts = jvmOpts
+        doLast {
+            delete windowsScript
+            if (project(':server').hasProperty("java11")) {
+                unixScript.text = unixScript.text.replaceFirst("JAVACMD=\"?java\"?", "JAVACMD=/usr/${java11LibDir}/jvm/jre-11/bin/java")
+            }
+        }
+    }
+
+    distributions {
+        main {
+            contents {
+                from(ControllerStartup) {
+                    into("bin")
+                }
+                from(LinstorConfigStartup) {
+                    into("bin")
+                }
+                from(LinstorDbToolStartup) {
+                    into("bin")
+                }
+            }
+        }
+    }
+}
+
+repositories
+{
+    mavenCentral()
+
+    flatDir {
+        dirs 'libs/compileClasspath', 'libs/runtimeClasspath'
+    }
+}
+
+sourceSets {
+    test {
+        java {
+            srcDirs = ["src/test/java"]
+        }
+    }
+}
+
+test {
+    finalizedBy jacocoTestReport // report is always generated after tests run
+}
+
+jacocoTestReport {
+    if (project.hasProperty('CoverageReport')) {
+        dependsOn = subprojects.test
+        additionalSourceDirs.setFrom(files(subprojects.sourceSets.main.allSource.srcDirs))
+        sourceDirectories.setFrom(files(subprojects.sourceSets.main.allSource.srcDirs))
+        classDirectories.setFrom(files(subprojects.sourceSets.main.output))
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = true
+        }
+        onlyIf = {
+            true
+        }
+//        doFirst {
+//            executionData.setFrom(files(executionData.findAll {
+//                it.exists()
+//            }))
+//        }
+        afterEvaluate {
+            excludedClassFilesForReport(classDirectories)
+        }
+    }
+}
+
+jacocoTestCoverageVerification {
+    if (project.hasProperty('CoverageReport')) {
+        afterEvaluate {
+            excludedClassFilesForReport(classDirectories)
+        }
+    }
+}
+
+private excludedClassFilesForReport(classDirectories) {
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it,
+                exclude: [
+                        'com/linbit/linstor/proto/**'
+                ]
+        )
+    }))
+}
+
+dependencies {
+    implementation project(':server'), project(':controller'), project(':satellite'), project(':jclcrypto')
+    testImplementation project(':server'), project(':controller'), project(':satellite'), project(':jclcrypto')
+
+    testImplementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.' + protobufVersion
+
+    def powerMockVersion = '2.0.9'
+    testImplementation group: 'junit', name: 'junit', version: '4.+'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.28.2'
+    testImplementation group: 'org.mockito', name: 'mockito-inline', version: '2.28.2'
+    testImplementation group: 'org.powermock', name: 'powermock-core', version: powerMockVersion
+    testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: powerMockVersion
+    testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: powerMockVersion
+
+    testCompileOnly group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
+    testImplementation group: 'org.assertj', name: 'assertj-core', version: '3.18.+'
+    testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
+
+    testImplementation group: 'com.cronutils', name: 'cron-utils', version: cronVersion
+
+    testImplementation group: 'com.google.inject.extensions', name: 'guice-testlib', version: '5.0.1'
+    testImplementation group: 'io.projectreactor', name: 'reactor-test', version: '3.3.12.RELEASE'
+}
+
+/////////////////////////// Start scripts ///////////////////////////
+startScripts.enabled = false
+
+distributions {
+    main {
+        contents {
+            from(project(":controller").ControllerStartup) {
+                into("bin")
+            }
+            from(project(":satellite").SatelliteStartup) {
+                into("bin")
+            }
+            from(project(":controller").LinstorConfigStartup) {
+                into("bin")
+            }
+            from(project(":controller").LinstorDbToolStartup) {
+                into("bin")
+            }
+            from("server/" + logbackConfig) {
+                into("lib/conf")
+            }
+        }
+    }
+}
+
+installDist {
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+}
+
+tasks.register('showMeCache') {
+    doLast {
+        configurations.runtimeClasspath.each { println it }
+    }
+}
+
+tasks.register('showMeTestCache') {
+    doLast {
+        configurations.testRuntimeClasspath.each { println it }
+    }
+}
+
+/////////////////////////// Test commands ///////////////////////////
+tasks.register('buildTestCommands', Exec) {
+    workingDir 'test-support'
+
+    commandLine 'make'
+
+    //store the output instead of printing to the console:
+    standardOutput = new ByteArrayOutputStream()
+
+    //extension method buildTestCommands.output() can be used to obtain the output:
+    ext.output = {
+        return standardOutput.toString()
+    }
+}
+
+tasks.register('unzipProtoc', Copy) {
+    dependsOn(downloadProtoc)
+
+    def zipFile = file("tools/protoc-" + protobufVersion + '-linux-x86_64.zip')
+    def outputDir = file("tools/protoc-" + protobufVersion)
+
+    from zipTree(zipFile)
+    into outputDir
+    eachFile {
+        if (it.relativePath.getFile(destinationDir).exists()) {
+            it.exclude()
+        }
+    }
+}
+
+tasks.register('downloadProtoc') {
+    outputs.dir "tools"
+    def protozip = new File("${projectDir}/tools/protoc-" + protobufVersion + '-linux-x86_64.zip')
+    outputs.file protozip
+
+    doLast {
+        if (!protozip.exists()) {
+            mkdir "tools"
+            println "downloading protoc..."
+            new URL('https://github.com/google/protobuf/releases/download/v'
+                    + protobufVersion + '/protoc-' + protobufVersion + '-linux-x86_64.zip')
+                    .withInputStream { i -> protozip.withOutputStream { it << i } }
+        }
+    }
+}
+
+tasks.register('getProtoc') {
+    dependsOn downloadProtoc, unzipProtoc
+}
+
+tasks.register('cleanTestCommands', Exec) {
+    workingDir 'test-support'
+
+    commandLine 'make', 'clean'
+
+    //store the output instead of printing to the console:
+    standardOutput = new ByteArrayOutputStream()
+
+    //extension method buildTestCommands.output() can be used to obtain the output:
+    ext.output = {
+        return standardOutput.toString()
+    }
+}
+
+compileTestJava {
+  dependsOn buildTestCommands
+}
+
+clean {
+    dependsOn cleanTestCommands
+}
+
+/////////////////////////// Dependency resolution ///////////////////////////
+tasks.register('resolveDependencies') {
+    doLast {
+        project.rootProject.allprojects.each { subProject ->
+            subProject.buildscript.configurations.each { configuration ->
+                resolveConfiguration(configuration)
+            }
+            subProject.configurations.each { configuration ->
+                resolveConfiguration(configuration)
+            }
+        }
+    }
+}
+
+static void resolveConfiguration(configuration) {
+    def nonResolveableConfigurations =
+            ['apiElements', 'implementation', 'runtimeElements', 'runtimeOnly', 'testImplementation',
+             'testRuntimeOnly', 'generatedImplementation', 'generatedRuntimeOnly']
+
+    if (!nonResolveableConfigurations.contains(configuration.getName())) {
+        configuration.resolve()
+    }
+}
+
+tasks.register('deleteLibs', Delete) {
+    doLast {
+        subprojects.each { prj ->
+            delete "${prj.name}/libs"
+        }
+        delete "${projectDir}/libs"
+    }
+}
+
+tasks.register('copyToLibs') {
+    dependsOn 'deleteLibs'
+    doLast {
+        ['compileClasspath', 'runtimeClasspath'].each { scope ->
+            copy {
+                from configurations.getByName(scope).files
+                into "libs"
+            }
+        }
+        subprojects.each { prj ->
+            ['compileClasspath', 'runtimeClasspath'].each { scope ->
+                mkdir "${prj.name}/libs/${scope}"
+                prj.configurations.getByName(scope).files.each { f ->
+                    if (file("libs/" + f.getName()).exists()) {
+                        ant.symlink(resource: "../../../libs/" + f.getName(), link: "${prj.name}/libs/${scope}/${f.getName()}")
+                    } else {
+                        copy {
+                            from f
+                            into "${prj.name}/libs/${scope}"
+                        }
+                    }
+                }
+            }
+        }
+        copy {
+            from buildscript.configurations.classpath
+            into "${projectDir}/libs/plugins"
+        }
+    }
+}
+
+// this task is needed for RPM packaging
+// it creates a list of dependency jars needed for the server project
+tasks.register('showServerRuntimeLibs') {
+    doLast {
+        project(':server').configurations.getByName('runtimeClasspath').files.each { f ->
+            print('/usr/share/linstor-server/lib/' + f.getName().toString() + '\n')
+        }
+    }
+}
