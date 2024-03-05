@@ -47,7 +47,6 @@ import javax.inject.Singleton;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.rmi.Remote;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -77,12 +76,14 @@ public class CtrlRemoteApiCallHandler
     private final ScopeRunner scopeRunner;
     private final ResponseConverter responseConverter;
     private final S3RemoteControllerFactory s3remoteFactory;
+
     private final ObsRemoteControllerFactory obsRemoteFactory;
     private final LinstorRemoteControllerFactory linstorRemoteFactory;
     private final EbsRemoteControllerFactory ebsRemoteFactory;
     private final RemoteRepository remoteRepository;
     private final EncryptionHelper encryptionHelper;
     private final BackupToS3 backupHandler;
+
     private final BackupToObs obsBackupHandler;
     private final CtrlSecurityObjects ctrlSecObj;
     private final NodeRepository nodeRepo;
@@ -437,7 +438,6 @@ public class CtrlRemoteApiCallHandler
         ctrlTransactionHelper.commit();
         return ctrlSatelliteUpdateCaller.updateSatellites(s3remote);
     }
-
     public Flux<ApiCallRc> createObs(
         String remoteName,
         String endpointRef,
