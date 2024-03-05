@@ -26,6 +26,12 @@ public class BackupConsts
     public static final Map<ExtTools, Version> S3_OPT_EXT_TOOLS = Collections.unmodifiableMap(
         Collections.emptyMap()
     );
+    public static final Map<ExtTools, Version> OBS_REQ_EXT_TOOLS = Collections.unmodifiableMap(
+        Collections.singletonMap(ExtTools.ZSTD, null)
+    );
+    public static final Map<ExtTools, Version> OBS_OPT_EXT_TOOLS = Collections.unmodifiableMap(
+        Collections.emptyMap()
+    );
     public static final Map<ExtTools, Version> L2L_REQ_EXT_TOOLS = Collections.unmodifiableMap(
         Collections.singletonMap(ExtTools.SOCAT, null)
     );
