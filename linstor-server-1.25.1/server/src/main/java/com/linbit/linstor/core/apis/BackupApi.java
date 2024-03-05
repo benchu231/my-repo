@@ -65,12 +65,12 @@ public interface BackupApi
     Boolean successful();
 
     /**
-     * is true in case of S3 if the meta-file exists and all entries in its backup-list are available in the same bucket
+     * is true in case of S3/OBS if the meta-file exists and all entries in its backup-list are available in the same bucket
      */
     Boolean isRestoreable();
 
     /**
-     * maps vlmNr to full backup name as saved in s3 ({rscName}_{vlmNr}_back_{timestampFullBackup}_{timestampIncBackup})
+     * maps vlmNr to full backup name as saved in s3/obs ({rscName}_{vlmNr}_back_{timestampFullBackup}_{timestampIncBackup})
      * should always contain at least 1 entry
      */
     Map<Integer, ? extends BackupVlmApi> getVlms();
@@ -82,6 +82,8 @@ public interface BackupApi
     String getBasedOnId();
 
     BackupS3Api getS3();
+
+    BackupObsApi getObs();
 
     public interface BackupVlmApi
     {
@@ -108,6 +110,12 @@ public interface BackupApi
          * might be null
          */
         BackupVlmS3Api getS3();
+
+        /**
+         * obs specific properties for this volume
+         * might be null
+         */
+        BackupVlmObsApi getObs();
     }
 
     public interface BackupVlmS3Api
@@ -118,10 +126,27 @@ public interface BackupApi
         String getS3Key();
     }
 
+    public interface BackupVlmObsApi
+    {
+        /**
+         * Name of the obs in the format "{rscName}{rscNameSuffix}_{vlmNr}_back_{startTimestamp}"
+         */
+        String getObsKey();
+    }
+
     public interface BackupS3Api
     {
         /**
          * Name of the meta file in s3 in the format "{rscName}_back_{startTimestamp}.meta"
+         * The meta-file might not exist
+         */
+        String getMetaName();
+    }
+
+    public interface BackupObsApi
+    {
+        /**
+         * Name of the meta file in obs in the format "{rscName}_back_{startTimestamp}.meta"
          * The meta-file might not exist
          */
         String getMetaName();
