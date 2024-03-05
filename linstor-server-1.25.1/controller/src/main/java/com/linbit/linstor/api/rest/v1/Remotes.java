@@ -62,6 +62,9 @@ public class Remotes
                 remoteList.s3_remotes = remoteHandler.listS3().stream()
                     .map(Json::apiToS3Remote)
                     .collect(Collectors.toList());
+                remoteList.obs_remotes = remoteHandler.listObs().stream()
+                    .map(Json::apiToObsRemote)
+                    .collect(Collectors.toList());
                 remoteList.linstor_remotes = remoteHandler.listLinstor().stream()
                     .map(Json::apiToLinstorRemote)
                     .collect(Collectors.toList());
@@ -144,6 +147,91 @@ public class Remotes
         try
         {
             JsonGenTypes.S3Remote remoteJson = objectMapper.readValue(jsonData, JsonGenTypes.S3Remote.class);
+            Flux<ApiCallRc> flux = remoteHandler.changeS3(
+                remoteName,
+                remoteJson.endpoint,
+                remoteJson.bucket,
+                remoteJson.region,
+                remoteJson.access_key,
+                remoteJson.secret_key
+            ).contextWrite(
+                requestHelper.createContext(ApiConsts.API_SET_REMOTE, request)
+            );
+
+            requestHelper.doFlux(asyncResponse, ApiCallRcRestUtils.mapToMonoResponse(flux, Response.Status.OK));
+        }
+        catch (IOException ioExc)
+        {
+            ApiCallRcRestUtils.handleJsonParseException(ioExc, asyncResponse);
+        }
+    }
+
+    @GET
+    @Path("obs")
+    public Response getObsRemotes(@Context Request request)
+    {
+        return requestHelper.doInScope(
+            requestHelper.createContext(ApiConsts.API_LST_REMOTE, request),
+            () ->
+            {
+                List<JsonGenTypes.ObsRemote> remoteList = remoteHandler.listObs().stream()
+                    .map(Json::apiToObsRemote)
+                    .collect(Collectors.toList());
+
+                return Response
+                    .status(Response.Status.OK)
+                    .entity(objectMapper.writeValueAsString(remoteList))
+                    .build();
+            },
+            false
+        );
+    }
+
+    @POST
+    @Path("obs")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void createObsRemote(
+        @Context Request request,
+        @Suspended final AsyncResponse asyncResponse,
+        String jsonData
+    )
+    {
+        try
+        {
+            JsonGenTypes.ObsRemote remoteJson = objectMapper.readValue(jsonData, JsonGenTypes.ObsRemote.class);
+            Flux<ApiCallRc> flux = remoteHandler.createObs(
+                remoteJson.remote_name,
+                remoteJson.endpoint,
+                remoteJson.bucket,
+                remoteJson.region,
+                remoteJson.access_key,
+                remoteJson.secret_key,
+                remoteJson.use_path_style
+            ).contextWrite(
+                requestHelper.createContext(ApiConsts.API_SET_REMOTE, request)
+            );
+
+            requestHelper.doFlux(asyncResponse, ApiCallRcRestUtils.mapToMonoResponse(flux, Response.Status.OK));
+        }
+        catch (IOException ioExc)
+        {
+            ApiCallRcRestUtils.handleJsonParseException(ioExc, asyncResponse);
+        }
+    }
+
+    @PUT
+    @Path("obs/{remoteName}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void changeObsRemote(
+        @Context Request request,
+        @Suspended final AsyncResponse asyncResponse,
+        @PathParam("remoteName") String remoteName,
+        String jsonData
+    )
+    {
+        try
+        {
+            JsonGenTypes.ObsRemote remoteJson = objectMapper.readValue(jsonData, JsonGenTypes.ObsRemote.class);
             Flux<ApiCallRc> flux = remoteHandler.changeS3(
                 remoteName,
                 remoteJson.endpoint,
