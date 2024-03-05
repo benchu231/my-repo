@@ -121,6 +121,7 @@ public abstract class AbsRemote extends AbsCoreObj<AbsRemote> implements Compara
     public enum RemoteType
     {
         S3(BackupConsts.S3_REQ_EXT_TOOLS, BackupConsts.S3_OPT_EXT_TOOLS),
+        OBS(BackupConsts.OBS_REQ_EXT_TOOLS, BackupConsts.OBS_OPT_EXT_TOOLS),
         SATELLITE(null, null),
         LINSTOR(
             BackupConsts.L2L_REQ_EXT_TOOLS, BackupConsts.L2L_OPT_EXT_TOOLS
