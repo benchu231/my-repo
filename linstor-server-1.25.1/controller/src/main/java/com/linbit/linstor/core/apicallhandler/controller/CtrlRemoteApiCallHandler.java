@@ -6,10 +6,7 @@ import com.linbit.linstor.LinStorException;
 import com.linbit.linstor.LinstorParsingUtils;
 import com.linbit.linstor.annotation.PeerContext;
 import com.linbit.linstor.annotation.SystemContext;
-import com.linbit.linstor.api.ApiCallRc;
-import com.linbit.linstor.api.ApiCallRcImpl;
-import com.linbit.linstor.api.ApiConsts;
-import com.linbit.linstor.api.BackupToS3;
+import com.linbit.linstor.api.*;
 import com.linbit.linstor.api.pojo.EbsRemotePojo;
 import com.linbit.linstor.api.pojo.LinstorRemotePojo;
 import com.linbit.linstor.api.pojo.ObsRemotePojo;
@@ -50,6 +47,7 @@ import javax.inject.Singleton;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.rmi.Remote;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -79,11 +77,13 @@ public class CtrlRemoteApiCallHandler
     private final ScopeRunner scopeRunner;
     private final ResponseConverter responseConverter;
     private final S3RemoteControllerFactory s3remoteFactory;
+    private final ObsRemoteControllerFactory obsRemoteFactory;
     private final LinstorRemoteControllerFactory linstorRemoteFactory;
     private final EbsRemoteControllerFactory ebsRemoteFactory;
     private final RemoteRepository remoteRepository;
     private final EncryptionHelper encryptionHelper;
     private final BackupToS3 backupHandler;
+    private final BackupToObs obsBackupHandler;
     private final CtrlSecurityObjects ctrlSecObj;
     private final NodeRepository nodeRepo;
 
@@ -101,11 +101,13 @@ public class CtrlRemoteApiCallHandler
         ScopeRunner scopeRunnerRef,
         ResponseConverter responseConverterRef,
         S3RemoteControllerFactory s3remoteFactoryRef,
+        ObsRemoteControllerFactory obsRemoteFactoryRef,
         LinstorRemoteControllerFactory linstorRemoteFactoryRef,
         EbsRemoteControllerFactory ebsRemoteFactoryRef,
         RemoteRepository remoteRepositoryRef,
         EncryptionHelper encryptionHelperRef,
         BackupToS3 backupHandlerRef,
+        BackupToObs obsBackupHandlerRef,
         CtrlSecurityObjects ctrlSecObjRef,
         ScheduleBackupService scheduleServiceRef,
         NodeRepository nodeRepoRef,
@@ -121,11 +123,13 @@ public class CtrlRemoteApiCallHandler
         scopeRunner = scopeRunnerRef;
         responseConverter = responseConverterRef;
         s3remoteFactory = s3remoteFactoryRef;
+        obsRemoteFactory = obsRemoteFactoryRef;
         linstorRemoteFactory = linstorRemoteFactoryRef;
         ebsRemoteFactory = ebsRemoteFactoryRef;
         remoteRepository = remoteRepositoryRef;
         encryptionHelper = encryptionHelperRef;
         backupHandler = backupHandlerRef;
+        obsBackupHandler = obsBackupHandlerRef;
         ctrlSecObj = ctrlSecObjRef;
         scheduleService = scheduleServiceRef;
         nodeRepo = nodeRepoRef;
@@ -496,18 +500,18 @@ public class CtrlRemoteApiCallHandler
         {
             byte[] accessKey = encryptionHelper.encrypt(accessKeyRef);
             byte[] secretKey = encryptionHelper.encrypt(secretKeyRef);
-            S3Remote remote = s3remoteFactory
+            ObsRemote remote = obsRemoteFactory
                 .create(peerAccCtx.get(), remoteName, endpointRef, bucketRef, regionRef, accessKey, secretKey);
             remoteRepository.put(apiCtx, remote);
 
             if (usePathStyleRef)
             {
-                remote.getFlags().enableFlags(peerAccCtx.get(), AbsRemote.Flags.S3_USE_PATH_STYLE);
+                remote.getFlags().enableFlags(peerAccCtx.get(), AbsRemote.Flags.OBS_USE_PATH_STYLE);
             }
 
             // check if url and keys work together
             byte[] masterKey = ctrlSecObj.getCryptKey();
-            backupHandler.listObjects("", remote, peerAccCtx.get(), masterKey);
+            obsBackupHandler.listObjects("", remote, peerAccCtx.get(), masterKey);
 
             ctrlTransactionHelper.commit();
             responses.addEntry(ApiCallRcImpl.simpleEntry(ApiConsts.CREATED | ApiConsts.MASK_REMOTE, "Remote created"));
@@ -571,7 +575,7 @@ public class CtrlRemoteApiCallHandler
         );
 
         return scopeRunner.fluxInTransactionalScope(
-            "Modify s3 remote",
+            "Modify obs remote",
             lockGuardFactory.buildDeferred(LockType.WRITE, LockObj.REMOTE_MAP),
             () -> changeObsInTransaction(
                 remoteName, endpointRef, bucketRef, regionRef, accessKeyRef, secretKeyRef
@@ -589,20 +593,20 @@ public class CtrlRemoteApiCallHandler
     )
     {
         RemoteName remoteName = LinstorParsingUtils.asRemoteName(remoteNameStr);
-        S3Remote s3remote = loadRemote(remoteName, S3Remote.class, "s3");
+        ObsRemote obsRemote = loadRemote(remoteName, ObsRemote.class, "obs");
         try
         {
             if (endpointRef != null && !endpointRef.isEmpty())
             {
-                s3remote.setUrl(peerAccCtx.get(), endpointRef);
+                obsRemote.setUrl(peerAccCtx.get(), endpointRef);
             }
             if (bucketRef != null && !bucketRef.isEmpty())
             {
-                s3remote.setBucket(peerAccCtx.get(), bucketRef);
+                obsRemote.setBucket(peerAccCtx.get(), bucketRef);
             }
             if (regionRef != null && !regionRef.isEmpty())
             {
-                s3remote.setRegion(peerAccCtx.get(), regionRef);
+                obsRemote.setRegion(peerAccCtx.get(), regionRef);
             }
             if (accessKeyRef != null && !accessKeyRef.isEmpty())
             {
@@ -621,7 +625,7 @@ public class CtrlRemoteApiCallHandler
                         exc
                     );
                 }
-                s3remote.setAccessKey(peerAccCtx.get(), accessKey);
+                obsRemote.setAccessKey(peerAccCtx.get(), accessKey);
             }
             if (secretKeyRef != null && !secretKeyRef.isEmpty())
             {
@@ -640,10 +644,10 @@ public class CtrlRemoteApiCallHandler
                         exc
                     );
                 }
-                s3remote.setSecretKey(peerAccCtx.get(), secretKey);
+                obsRemote.setSecretKey(peerAccCtx.get(), secretKey);
             }
             byte[] masterKey = ctrlSecObj.getCryptKey();
-            backupHandler.listObjects("", s3remote, peerAccCtx.get(), masterKey);
+            obsBackupHandler.listObjects("", obsRemote, peerAccCtx.get(), masterKey);
         }
         catch (SdkClientException exc)
         {
@@ -671,7 +675,7 @@ public class CtrlRemoteApiCallHandler
         }
 
         ctrlTransactionHelper.commit();
-        return ctrlSatelliteUpdateCaller.updateSatellites(s3remote);
+        return ctrlSatelliteUpdateCaller.updateSatellites(obsRemote);
     }
 
     public Flux<ApiCallRc> createLinstor(
@@ -1328,6 +1332,10 @@ public class CtrlRemoteApiCallHandler
             if (remote instanceof S3Remote)
             {
                 backupHandler.deleteRemoteFromCache((S3Remote) remote);
+            }
+            else if (remote instanceof ObsRemote)
+            {
+                obsBackupHandler.deleteRemoteFromCache((ObsRemote) remote);
             }
             try
             {
