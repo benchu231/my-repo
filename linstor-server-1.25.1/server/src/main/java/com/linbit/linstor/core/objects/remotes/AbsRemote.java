@@ -58,7 +58,8 @@ public abstract class AbsRemote extends AbsCoreObj<AbsRemote> implements Compara
     public enum Flags implements com.linbit.linstor.stateflags.Flags
     {
         DELETE(1L),
-        S3_USE_PATH_STYLE(1L << 1);
+        S3_USE_PATH_STYLE(1L << 1),
+        OBS_USE_PATH_STYLE(1L << 1);
 
         public final long flagValue;
 
