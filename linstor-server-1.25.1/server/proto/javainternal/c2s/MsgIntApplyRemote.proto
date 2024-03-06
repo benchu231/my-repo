@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com.linbit.linstor.proto.javainternal.c2s;
+import "javainternal/c2s/IntEbsRemote.proto";
+import "javainternal/c2s/IntS3Remote.proto";
+import "javainternal/c2s/IntStltRemote.proto";
+import "javainternal/c2s/IntObsRemote.proto";
+
+// Internal message to apply a single remote object (other references will be null)
+message MsgIntApplyRemote
+{
+    IntS3Remote s3remote = 1;
+    IntStltRemote satellite_remote = 4;
+    IntEbsRemote ebs_remote = 5;
+    IntObsRemote obs_remote = 6;
+
+    sint64 full_sync_id = 2;
+    sint64 update_id = 3;
+}
