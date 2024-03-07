@@ -11,7 +11,11 @@ import com.linbit.linstor.core.apicallhandler.controller.CtrlApiDataLoader;
 import com.linbit.linstor.core.apicallhandler.controller.backup.CtrlBackupCreateApiCallHandler;
 import com.linbit.linstor.core.apicallhandler.response.ApiRcException;
 import com.linbit.linstor.core.identifier.VolumeNumber;
-import com.linbit.linstor.core.objects.*;
+import com.linbit.linstor.core.objects.Node;
+import com.linbit.linstor.core.objects.Resource;
+import com.linbit.linstor.core.objects.ResourceDefinition;
+import com.linbit.linstor.core.objects.SnapshotDefinition;
+import com.linbit.linstor.core.objects.StorPool;
 import com.linbit.linstor.core.objects.remotes.AbsRemote;
 import com.linbit.linstor.core.objects.remotes.AbsRemote.RemoteType;
 import com.linbit.linstor.core.repository.SystemConfProtectionRepository;
@@ -36,16 +40,24 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Singleton
 public class BackupNodeFinder
 {
     private static final CategorySameNode CATEGORY_SAME_NODE = new CategorySameNode();
-    private static final Version VERSION_THIN_SEND_RECV = new Version(0, 24);
-    private static final Version VERSION_UTIL_LINUX = new Version(2, 24);
+    private static final Version VERSION_THIN_SEND_RECV = new ExtToolsInfo.Version(0, 24);
+    private static final Version VERSION_UTIL_LINUX = new ExtToolsInfo.Version(2, 24);
 
     private final Provider<AccessContext> peerAccCtx;
     private final CtrlApiDataLoader ctrlApiDataLoader;
@@ -207,7 +219,8 @@ public class BackupNodeFinder
                             InternalApiConsts.KEY_BACKUP_SRC_NODE + "/" + remoteName,
                             ApiConsts.NAMESPC_BACKUP_SHIPPING
                         );
-                } else if (remoteType == RemoteType.LINSTOR)
+                }
+                else if (remoteType == RemoteType.LINSTOR)
                 {
                     prevNodeStr = prevSnapDfnRef.getProps(accCtx)
                         .getProp(
@@ -348,7 +361,7 @@ public class BackupNodeFinder
                         extToolsManager,
                         ExtTools.COREUTILS_LINUX,
                         "timeout from coreutils",
-                        new Version(8, 5) // coreutils commit c403c31e8806b732e1164ef4a206b0eab71bca95
+                        new ExtToolsInfo.Version(8, 5) // coreutils commit c403c31e8806b732e1164ef4a206b0eab71bca95
                     )
                 );
                 if (deviceProviderKind.equals(DeviceProviderKind.LVM_THIN))
@@ -453,7 +466,7 @@ public class BackupNodeFinder
         ExtToolsManager extToolsManagerRef,
         ExtTools extTool,
         String toolDescr,
-        Version version
+        ExtToolsInfo.Version version
     )
     {
         ApiCallRcEntry errorRc;
