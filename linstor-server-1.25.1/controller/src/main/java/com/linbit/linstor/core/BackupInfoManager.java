@@ -20,6 +20,7 @@ import com.linbit.linstor.core.objects.remotes.AbsRemote;
 import com.linbit.linstor.core.objects.remotes.ObsRemote;
 import com.linbit.linstor.core.objects.remotes.S3Remote;
 import com.linbit.linstor.core.objects.remotes.StltRemote;
+import com.linbit.linstor.core.repository.RemoteRepository;
 import com.linbit.linstor.logging.ErrorReporter;
 import com.linbit.linstor.security.AccessContext;
 import com.linbit.linstor.security.AccessDeniedException;
@@ -66,20 +67,20 @@ public class BackupInfoManager
     private final Map<StltRemote, CleanupData> cleanupDataMap;
     private final AccessContext sysCtx;
     private final ErrorReporter errorReporter;
-    private final CoreModule.RemoteMap remoteMap;
+    private final RemoteRepository remoteRepo;
 
     @Inject
     public BackupInfoManager(
         TransactionObjectFactory transObjFactoryRef,
         @SystemContext AccessContext sysCtxRef,
         ErrorReporter errorReporterRef,
-        CoreModule.RemoteMap remoteMapRef
+        RemoteRepository remoteRepoRef
     )
     {
         sysCtx = sysCtxRef;
         errorReporter = errorReporterRef;
         restoreMap = transObjFactoryRef.createTransactionPrimitiveMap(new HashMap<>(), null);
-        remoteMap = remoteMapRef;
+        remoteRepo = remoteRepoRef;
         abortCreateMap = new HashMap<>();
         abortRestoreMap = new HashMap<>();
         backupsToDownload = new HashMap<>();
@@ -273,8 +274,8 @@ public class BackupInfoManager
         {
             AbsRemote remote = null;
             try {
-                remote = remoteMap.get(new RemoteName(remoteName));
-            } catch (InvalidNameException e) {
+                remote = remoteRepo.get(sysCtx, new RemoteName(remoteName));
+            } catch (InvalidNameException | AccessDeniedException e) {
                 throw new RuntimeException(e);
             }
             if (remote instanceof S3Remote)
