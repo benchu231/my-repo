@@ -17,6 +17,8 @@ import com.linbit.linstor.core.objects.ResourceDefinition;
 import com.linbit.linstor.core.objects.Snapshot;
 import com.linbit.linstor.core.objects.SnapshotDefinition;
 import com.linbit.linstor.core.objects.remotes.AbsRemote;
+import com.linbit.linstor.core.objects.remotes.ObsRemote;
+import com.linbit.linstor.core.objects.remotes.S3Remote;
 import com.linbit.linstor.core.objects.remotes.StltRemote;
 import com.linbit.linstor.logging.ErrorReporter;
 import com.linbit.linstor.security.AccessContext;
@@ -64,17 +66,20 @@ public class BackupInfoManager
     private final Map<StltRemote, CleanupData> cleanupDataMap;
     private final AccessContext sysCtx;
     private final ErrorReporter errorReporter;
+    private final CoreModule.RemoteMap remoteMap;
 
     @Inject
     public BackupInfoManager(
         TransactionObjectFactory transObjFactoryRef,
         @SystemContext AccessContext sysCtxRef,
-        ErrorReporter errorReporterRef
+        ErrorReporter errorReporterRef,
+        CoreModule.RemoteMap remoteMapRef
     )
     {
         sysCtx = sysCtxRef;
         errorReporter = errorReporterRef;
         restoreMap = transObjFactoryRef.createTransactionPrimitiveMap(new HashMap<>(), null);
+        remoteMap = remoteMapRef;
         abortCreateMap = new HashMap<>();
         abortRestoreMap = new HashMap<>();
         backupsToDownload = new HashMap<>();
@@ -251,46 +256,40 @@ public class BackupInfoManager
     }
 
     /**
-     * add all the information needed to cleanly abort a multipart-upload to s3 to a list for easy access when needed
+     * old name: abortCreateAddS3Entry
+     * add all the information needed to cleanly abort a multipart-upload to s3/obs to a list for easy access when needed
      */
-    public void abortCreateAddS3Entry(
+    public void abortCreateAddBackupEntry(
         String nodeName,
         String rscName,
         String snapName,
         String backupName,
         String uploadId,
         String remoteName
-    )
-    {
+    ) {
         // DO NOT just synchronize within getAbortInfo as the following .add(new Abort*Info(..)) should also be in the
         // same synchronized block as the initial get
         synchronized (abortCreateMap)
         {
-            getAbortCreateInfo(nodeName, rscName, snapName).abortS3InfoList.add(
-                new AbortS3Info(backupName, uploadId, remoteName)
-            );
-        }
-    }
+            AbsRemote remote = null;
+            try {
+                remote = remoteMap.get(new RemoteName(remoteName));
+            } catch (InvalidNameException e) {
+                throw new RuntimeException(e);
+            }
+            if (remote instanceof S3Remote)
+            {
+                getAbortCreateInfo(nodeName, rscName, snapName).abortS3InfoList.add(
+                    new AbortBackupInfo(backupName, uploadId, remoteName)
+                );
+            }
+            else if (remote instanceof ObsRemote)
+            {
+                getAbortCreateInfo(nodeName, rscName, snapName).abortObsInfoList.add(
+                    new AbortBackupInfo(backupName, uploadId, remoteName)
+                );
+            }
 
-    /**
-     * add all the information needed to cleanly abort a multipart-upload to obs to a list for easy access when needed
-     */
-    public void abortCreateAddObsEntry(
-        String nodeName,
-        String rscName,
-        String snapName,
-        String backupName,
-        String uploadId,
-        String remoteName
-    )
-    {
-        // DO NOT just synchronize within getAbortInfo as the following .add(new Abort*Info(..)) should also be in the
-        // same synchronized block as the initial get
-        synchronized (abortCreateMap)
-        {
-            getAbortCreateInfo(nodeName, rscName, snapName).abortObsInfoList.add(
-                new AbortObsInfo(backupName, uploadId, remoteName)
-            );
         }
     }
 
@@ -903,37 +902,28 @@ public class BackupInfoManager
 
     public static class AbortInfo
     {
-        public final List<AbortS3Info> abortS3InfoList = new ArrayList<>();
-        public final List<AbortObsInfo> abortObsInfoList = new ArrayList<>();
+        public final List<AbortBackupInfo> abortS3InfoList = new ArrayList<>();
+        public final List<AbortBackupInfo> abortObsInfoList = new ArrayList<>();
         public final List<AbortL2LInfo> abortL2LInfoList = new ArrayList<>();
 
         public boolean isEmpty()
         {
-            return abortS3InfoList.isEmpty() && abortL2LInfoList.isEmpty() && abortObsInfoList.isEmpty();
+            return abortS3InfoList.isEmpty() && abortObsInfoList.isEmpty() && abortL2LInfoList.isEmpty();
         }
     }
 
-
-    public static class AbortS3Info
+    /**
+     * Old name: AbortS3Info
+     * Change the class name to AbortBackupInfo because OBS is similar to S3
+     * Instead of creating a new Class AbortObsInfo
+     */
+    public static class AbortBackupInfo
     {
         public final String backupName;
         public final String uploadId;
         public final String remoteName;
 
-        AbortS3Info(String backupNameRef, String uploadIdRef, String remoteNameRef)
-        {
-            backupName = backupNameRef;
-            uploadId = uploadIdRef;
-            remoteName = remoteNameRef;
-        }
-    }
-
-    public static class AbortObsInfo{
-        public final String backupName;
-        public final String uploadId;
-        public final String remoteName;
-
-        AbortObsInfo(String backupNameRef, String uploadIdRef, String remoteNameRef)
+        AbortBackupInfo(String backupNameRef, String uploadIdRef, String remoteNameRef)
         {
             backupName = backupNameRef;
             uploadId = uploadIdRef;
