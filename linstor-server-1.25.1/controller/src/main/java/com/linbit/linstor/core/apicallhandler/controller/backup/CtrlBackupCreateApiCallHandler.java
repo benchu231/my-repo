@@ -830,41 +830,18 @@ public class CtrlBackupCreateApiCallHandler
                 {
                     boolean found = false;
                     ApiCallRcImpl apiCallRc = new ApiCallRcImpl();
+                    Map<String, AbsObjectInfo> linstorObjects = backupHelper.loadAllLinstorS3OrObsObjects(
+                        remote,
+                        apiCallRc
+                    );
                     if (
-                        remote instanceof S3Remote &&
+                        (remote instanceof S3Remote || remote instanceof ObsRemote) &&
                             prevSnapDfn.getFlags().isSet(peerAccCtx.get(), SnapshotDefinition.Flags.SHIPPED)
                     )
                     {
-//                        S3Remote s3remote = (S3Remote) remote;
-
-                        Map<String, AbsObjectInfo> s3LinstorObjects = backupHelper.loadAllLinstorS3OrObsObjects(
-                            remote,
-                            apiCallRc
-                        );
-
-                        for (AbsObjectInfo s3obj : s3LinstorObjects.values())
+                        for (AbsObjectInfo absObj : linstorObjects.values())
                         {
-                            SnapshotDefinition snapDfn = s3obj.getSnapDfn();
-                            if (snapDfn != null && snapDfn.getUuid().equals(prevSnapDfn.getUuid()))
-                            {
-                                found = true;
-                                break;
-                            }
-                        }
-                    } else if (
-                        remote instanceof ObsRemote &&
-                            prevSnapDfn.getFlags().isSet(peerAccCtx.get(), SnapshotDefinition.Flags.SHIPPED)
-                    )
-                    {
-                        ObsRemote obsRemote = (ObsRemote) remote;
-                        Map<String, ObsObjectInfo> obsLinstorObjects = backupHelper.loadAllLinstorObsObjects(
-                            obsRemote,
-                            apiCallRc
-                        );
-
-                        for (ObsObjectInfo obsObj : obsLinstorObjects.values())
-                        {
-                            SnapshotDefinition snapDfn = obsObj.getSnapDfn();
+                            SnapshotDefinition snapDfn = absObj.getSnapDfn();
                             if (snapDfn != null && snapDfn.getUuid().equals(prevSnapDfn.getUuid()))
                             {
                                 found = true;

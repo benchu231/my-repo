@@ -163,7 +163,7 @@ public class CtrlBackupApiCallHandler
     }
 
     /**
-     * Delete backups from an s3-remote</br>
+     * Delete backups from an s3-remote or an obs-remote</br>
      * The following combinations are allowed:
      * <dl>
      * <dt>id [cascading]</dt>
@@ -171,7 +171,7 @@ public class CtrlBackupApiCallHandler
      * <dt>idPrefix [cascading]</dt>
      * <dd>delete all backups starting with this name</dd>
      * <dt>key [cascading]</dt>
-     * <dd>delete this exact s3-object, whether it is part of a backup or not</dd>
+     * <dd>delete this exact s3-object/obs-object, whether it is part of a backup or not</dd>
      * <dt>(timestamp|rscName|nodeName)+ [cascading]</dt>
      * <dd>delete all backups fitting the filter:
      * <ul style="list-style: none; margin-bottom: 0px;">
