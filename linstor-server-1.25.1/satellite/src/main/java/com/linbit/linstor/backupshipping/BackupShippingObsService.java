@@ -93,24 +93,12 @@ public class BackupShippingObsService extends AbsBackupShippingService
     @Override
     protected String getCommandReceiving(String cmdRef, AbsRemote ignoredRemote, AbsStorageVlmData<Snapshot> ignored)
     {
-//        throw new ApiRcException(
-//                ApiCallRcImpl.simpleEntry(
-//                        ApiConsts.MASK_INFO,
-//                        String.format(CMD_FORMAT_RECEIVING, cmdRef)
-//                )
-//        );
         return String.format(CMD_FORMAT_RECEIVING, cmdRef);
     }
 
     @Override
     protected String getCommandSending(String cmdRef, AbsRemote ignoredRemote, AbsStorageVlmData<Snapshot> ignored)
     {
-//        throw new ApiRcException(
-//                ApiCallRcImpl.simpleEntry(
-//                        ApiConsts.MASK_INFO,
-//                        String.format(CMD_FORMAT_SENDING, cmdRef)
-//                )
-//        );
         return String.format(CMD_FORMAT_SENDING, cmdRef);
     }
 
