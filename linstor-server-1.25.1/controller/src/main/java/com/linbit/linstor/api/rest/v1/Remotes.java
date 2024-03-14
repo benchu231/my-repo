@@ -232,7 +232,7 @@ public class Remotes
         try
         {
             JsonGenTypes.ObsRemote remoteJson = objectMapper.readValue(jsonData, JsonGenTypes.ObsRemote.class);
-            Flux<ApiCallRc> flux = remoteHandler.changeS3(
+            Flux<ApiCallRc> flux = remoteHandler.changeObs(
                 remoteName,
                 remoteJson.endpoint,
                 remoteJson.bucket,
