@@ -818,37 +818,7 @@ public class CtrlBackupApiCallHandler
 
                 String backupTimeRaw = snapDfn.getProps(peerCtx)
                         .getProp(InternalApiConsts.KEY_BACKUP_START_TIMESTAMP, ApiConsts.NAMESPC_BACKUP_SHIPPING);
-
-//                String[] msgs = {
-//                    "API_APPLY_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_APPLY_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "API_REQUEST_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_REQUEST_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "KEY_BACKUP_TARGET_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.KEY_BACKUP_TARGET_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "KEY_BACKUP_SRC_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.KEY_BACKUP_SRC_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "API_APPLY_DELETED_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_APPLY_DELETED_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "NAMESPC_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.NAMESPC_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    "API_CHANGED_REMOTE:" + snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_CHANGED_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_APPLY_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_REQUEST_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.KEY_BACKUP_TARGET_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.KEY_BACKUP_SRC_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_APPLY_DELETED_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.NAMESPC_REMOTE, ApiConsts.KEY_REMOTE) + "\n",
-//                    snapDfn.getProps(peerCtx)
-//                        .getProp(InternalApiConsts.API_CHANGED_REMOTE, ApiConsts.KEY_REMOTE),
-//                };
+                
                 String targetRemote = snapDfn.getProps(peerCtx)
                         .getProp(InternalApiConsts.KEY_BACKUP_TARGET_REMOTE, ApiConsts.NAMESPC_BACKUP_SHIPPING);
 
